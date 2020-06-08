@@ -1,0 +1,23 @@
+###
+POST http://{{host}}:{{port}}/game
+Content-Type: application/x-www-form-urlencoded
+
+name=game1
+
+###
+// {"id":2303984962641547625,"players":null,"score":0,"current_player_index":0}
+
+###
+GET http://{{host}}:{{port}}/game?id=2303984962641547625
+
+###
+POST http://{{host}}:{{port}}/join_game
+Content-Type: application/x-www-form-urlencoded
+
+game_id=2303984962641547625&player_id=2241025749010357581
+
+###
+POST http://{{host}}:{{port}}/start_game
+Content-Type: application/x-www-form-urlencoded
+
+game_id=2303984962641547625

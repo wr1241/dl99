@@ -1,0 +1,18 @@
+POST http://{{host}}:{{port}}/player
+Content-Type: application/x-www-form-urlencoded
+
+name=player3
+
+###
+// {"Id":1652630983544177886,"name":"player1","hand":null}
+// {"Id":5870343732781877724,"name":"player2","hand":null}
+// {"Id":2241025749010357581,"name":"player3","hand":null}
+
+###
+GET http://{{host}}:{{port}}/player?id=1652630983544177886
+
+###
+POST http://{{host}}:{{port}}/play
+Content-Type: application/x-www-form-urlencoded
+
+game_id=2303984962641547625&player_id=1652630983544177886&card_index=1

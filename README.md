@@ -1,0 +1,1 @@
+Rule: https://sspai.com/post/60454
