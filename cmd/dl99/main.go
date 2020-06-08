@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/google/uuid"
 	"log"
 	"math/rand"
 	"net/http"
@@ -17,8 +18,8 @@ var (
 	serverPort = flag.Int("port", 9999, "the server port")
 
 	rng     = rand.New(rand.NewSource(time.Now().UnixNano()))
-	players = make(map[int64]*dl99.Player)
-	games   = make(map[int64]*dl99.Game)
+	players = make(map[uuid.UUID]*dl99.Player)
+	games   = make(map[uuid.UUID]*dl99.Game)
 )
 
 func main() {
@@ -36,9 +37,9 @@ func main() {
 				return
 			}
 
-			var id int64
+			var id uuid.UUID
 			for {
-				id = rng.Int63()
+				id = uuid.New()
 				if _, ok := players[id]; !ok {
 					players[id] = dl99.NewPlayer(id, name)
 					data, err := json.Marshal(players[id])
@@ -55,13 +56,12 @@ func main() {
 				}
 			}
 		case http.MethodGet:
-			id, err := strconv.ParseInt(req.URL.Query().Get("id"), 10, 64)
+			id, err := uuid.Parse(req.URL.Query().Get("id"))
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
-				log.Println("get player without id")
+				log.Printf("invalid player id: %s\n", req.URL.Query().Get("id"))
 				return
 			}
-
 			if player, ok := players[id]; ok {
 				data, err := json.Marshal(player)
 				if err != nil {
@@ -97,9 +97,9 @@ func main() {
 				return
 			}
 
-			var id int64
+			var id uuid.UUID
 			for {
-				id = rng.Int63()
+				id = uuid.New()
 				if _, ok := games[id]; !ok {
 					games[id] = dl99.NewGame(id, name)
 					data, err := json.Marshal(games[id])
@@ -116,10 +116,10 @@ func main() {
 				}
 			}
 		case http.MethodGet:
-			id, err := strconv.ParseInt(req.URL.Query().Get("id"), 10, 64)
+			id, err := uuid.Parse(req.URL.Query().Get("id"))
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
-				log.Println("get game without id")
+				log.Printf("invalid game id: %s\n", req.URL.Query().Get("id"))
 				return
 			}
 
@@ -171,10 +171,10 @@ func main() {
 	http.HandleFunc("/join_game", func(w http.ResponseWriter, req *http.Request) {
 		switch req.Method {
 		case http.MethodPost:
-			gameId, err := strconv.ParseInt(req.PostFormValue("game_id"), 10, 64)
+			gameId, err := uuid.Parse(req.PostFormValue("game_id"))
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
-				log.Printf("invalid game_id %s\n", req.PostFormValue("game_id"))
+				log.Printf("invalid game id: %s\n", req.PostFormValue("game_id"))
 				return
 			}
 			game, ok := games[gameId]
@@ -184,10 +184,10 @@ func main() {
 				return
 			}
 
-			playerId, err := strconv.ParseInt(req.PostFormValue("player_id"), 10, 64)
+			playerId, err := uuid.Parse(req.PostFormValue("player_id"))
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
-				log.Printf("invalid player_id %s\n", req.PostFormValue("player_id"))
+				log.Printf("invalid player id: %s\n", req.PostFormValue("player_id"))
 				return
 			}
 			player, ok := players[playerId]
@@ -213,13 +213,12 @@ func main() {
 	http.HandleFunc("/start_game", func(w http.ResponseWriter, req *http.Request) {
 		switch req.Method {
 		case http.MethodPost:
-			id, err := strconv.ParseInt(req.PostFormValue("game_id"), 10, 64)
+			id, err := uuid.Parse(req.PostFormValue("game_id"))
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
-				log.Printf("invalid game_id %s\n", req.PostFormValue("game_id"))
+				log.Printf("invalid game id: %s\n", req.PostFormValue("game_id"))
 				return
 			}
-
 			if game, ok := games[id]; ok {
 				if err := game.StartGame(); err != nil {
 					w.WriteHeader(http.StatusForbidden)
@@ -242,10 +241,10 @@ func main() {
 	http.HandleFunc("/play", func(w http.ResponseWriter, req *http.Request) {
 		switch req.Method {
 		case http.MethodPost:
-			gameId, err := strconv.ParseInt(req.PostFormValue("game_id"), 10, 64)
+			gameId, err := uuid.Parse(req.PostFormValue("game_id"))
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
-				log.Printf("invalid game_id %s\n", req.PostFormValue("game_id"))
+				log.Printf("invalid game id: %s\n", req.PostFormValue("game_id"))
 				return
 			}
 			game, ok := games[gameId]
@@ -255,10 +254,10 @@ func main() {
 				return
 			}
 
-			playerId, err := strconv.ParseInt(req.PostFormValue("player_id"), 10, 64)
+			playerId, err := uuid.Parse(req.PostFormValue("player_id"))
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
-				log.Printf("invalid player_id %s\n", req.PostFormValue("player_id"))
+				log.Printf("invalid player id: %s\n", req.PostFormValue("player_id"))
 				return
 			}
 			player, ok := players[playerId]

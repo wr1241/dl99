@@ -2,6 +2,7 @@ package dl99
 
 import (
 	"errors"
+	"github.com/google/uuid"
 	"math/rand"
 	"sync"
 	"time"
@@ -37,14 +38,14 @@ const (
 )
 
 type Game struct {
-	Id                 int64     `json:"id"`
+	Id                 uuid.UUID `json:"id"`
 	Name               string    `json:"name"`
 	Players            []*Player `json:"players"`
 	Score              int       `json:"score"`
 	CurrentPlayerIndex int       `json:"current_player_index"`
+	State              int       `json:"state"`
 
-	mu    sync.Mutex
-	state int
+	mu sync.Mutex
 
 	deck     []Card
 	deadwood []Card
@@ -54,11 +55,11 @@ type Game struct {
 	clockwise bool
 }
 
-func NewGame(id int64, name string) *Game {
+func NewGame(id uuid.UUID, name string) *Game {
 	return &Game{
 		Id:        id,
 		Name:      name,
-		state:     gameCreated,
+		State:     gameCreated,
 		clockwise: true,
 	}
 }
@@ -67,7 +68,7 @@ func (game *Game) PlayerJoin(player *Player) error {
 	game.mu.Lock()
 	defer game.mu.Unlock()
 
-	if game.state != gameCreated {
+	if game.State != gameCreated {
 		return ErrInvalidGameState
 	}
 
@@ -84,7 +85,7 @@ func (game *Game) StartGame() error {
 	game.mu.Lock()
 	defer game.mu.Unlock()
 
-	if game.state != gameCreated {
+	if game.State != gameCreated {
 		return ErrInvalidGameState
 	}
 
@@ -113,7 +114,7 @@ func (game *Game) StartGame() error {
 		}
 	}
 
-	game.state = gameStarted
+	game.State = gameStarted
 
 	return nil
 }
@@ -122,7 +123,7 @@ func (game *Game) PlayCard(player *Player, card Card, cardOption *CardOption) er
 	game.mu.Lock()
 	defer game.mu.Unlock()
 
-	if game.state != gameStarted {
+	if game.State != gameStarted {
 		return ErrInvalidGameState
 	}
 
@@ -160,8 +161,8 @@ func (game *Game) PlayCard(player *Player, card Card, cardOption *CardOption) er
 		if cardOption == nil {
 			return ErrInvalidCardOption
 		}
-		for i, player := range game.Players {
-			if player.Id == cardOption.RankAceChangeNextPlayer {
+		for i, somePlayer := range game.Players {
+			if somePlayer.Id == cardOption.RankAceChangeNextPlayer {
 				game.CurrentPlayerIndex = i
 				break
 			}
@@ -220,7 +221,7 @@ func (game *Game) PlayCard(player *Player, card Card, cardOption *CardOption) er
 	}
 
 	if len(game.Players) == 1 {
-		game.state = gameFinished
+		game.State = gameFinished
 		return ErrWin
 	}
 

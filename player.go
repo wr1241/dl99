@@ -1,14 +1,17 @@
 package dl99
 
-import "errors"
+import (
+	"errors"
+	"github.com/google/uuid"
+)
 
 type Player struct {
-	Id   int64  `json:"Id"`
-	Name string `json:"name"`
-	Hand []Card `json:"hand"`
+	Id   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+	Hand []Card    `json:"hand"`
 }
 
-func NewPlayer(id int64, name string) *Player {
+func NewPlayer(id uuid.UUID, name string) *Player {
 	return &Player{
 		Id:   id,
 		Name: name,

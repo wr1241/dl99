@@ -2,6 +2,7 @@ package dl99
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 )
 
 type Suit uint8
@@ -125,13 +126,13 @@ type CardOption struct {
 	// RankKing will set Score to 99
 
 	// next Player Id
-	RankAceChangeNextPlayer int64 `json:"rank_ace_change_next_player"`
+	RankAceChangeNextPlayer uuid.UUID `json:"rank_ace_change_next_player"`
 
 	// Rank8 will change Players order
 
 	// draw from other Player
-	RankJackDrawOneCardFromPlayer int64 `json:"rank_jack_draw_one_card_from_player"`
+	RankJackDrawOneCardFromPlayer uuid.UUID `json:"rank_jack_draw_one_card_from_player"`
 
 	// change all your Hand to other Player
-	Rank7ChangeAllHandToPlayer int64 `json:"rank_7_change_all_hand_to_player"`
+	Rank7ChangeAllHandToPlayer uuid.UUID `json:"rank_7_change_all_hand_to_player"`
 }
