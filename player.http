@@ -1,18 +1,45 @@
+### player 1
+POST http://{{host}}:{{port}}/player
+Content-Type: application/x-www-form-urlencoded
+
+name=player1
+
+###
+#{
+#  "player_id": "48bc0015a4c41616d1aaf9ed40487aa45b75d93ff701f9b4"
+#}
+
+### player 2
+POST http://{{host}}:{{port}}/player
+Content-Type: application/x-www-form-urlencoded
+
+name=player2
+
+###
+#{
+#  "player_id": "64805beda4c41616fc65e30cda03ecea1086131d9d8babc5"
+#}
+
+### player 3
 POST http://{{host}}:{{port}}/player
 Content-Type: application/x-www-form-urlencoded
 
 name=player3
 
 ###
-// {"Id":1652630983544177886,"name":"player1","hand":null}
-// {"Id":5870343732781877724,"name":"player2","hand":null}
-// {"Id":2241025749010357581,"name":"player3","hand":null}
+#{
+#  "player_id": "b8ea71c7a5c41616900ad838daf67f5446e1b077f9ce9923"
+#}
 
-###
-GET http://{{host}}:{{port}}/player?id=1652630983544177886
+### Get player info
+GET http://{{host}}:{{port}}/player/48bc0015a4c41616d1aaf9ed40487aa45b75d93ff701f9b4
 
-###
-POST http://{{host}}:{{port}}/play
+### Get players in game
+GET http://{{host}}:{{port}}/game/60874b3ea7c41616323f3f99ac9b83f262a087cc99cd3896/players
+
+
+### Join Game
+POST http://{{host}}:{{port}}/join_game
 Content-Type: application/x-www-form-urlencoded
 
-game_id=2303984962641547625&player_id=1652630983544177886&card_index=1
+game_id=60874b3ea7c41616323f3f99ac9b83f262a087cc99cd3896&player_id=b8ea71c7a5c41616900ad838daf67f5446e1b077f9ce9923

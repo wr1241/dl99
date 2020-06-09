@@ -2,299 +2,151 @@ package main
 
 import (
 	"dl99"
-	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
-	"github.com/google/uuid"
+	"github.com/gin-gonic/gin"
 	"log"
-	"math/rand"
 	"net/http"
 	"strconv"
-	"time"
 )
 
 var (
 	serverHost = flag.String("host", "0.0.0.0", "the server host")
 	serverPort = flag.Int("port", 9999, "the server port")
-
-	rng     = rand.New(rand.NewSource(time.Now().UnixNano()))
-	players = make(map[uuid.UUID]*dl99.Player)
-	games   = make(map[uuid.UUID]*dl99.Game)
+	maxPlayers = flag.Int("max-players", dl99.DefaultMaxPlayers, "max players")
+	maxGames   = flag.Int("max-games", dl99.DefaultMaxGames, "max game")
 )
 
 func main() {
 	flag.Parse()
 
-	//POST /player?name=xxxxxx
-	//GET /player?id=0
-	http.HandleFunc("/player", func(w http.ResponseWriter, req *http.Request) {
-		switch req.Method {
-		case http.MethodPost:
-			name := req.PostFormValue("name")
-			if len(name) == 0 {
-				w.WriteHeader(http.StatusBadRequest)
-				log.Println("no name")
-				return
-			}
+	srv := dl99.NewServer(*maxPlayers, *maxGames)
 
-			var id uuid.UUID
-			for {
-				id = uuid.New()
-				if _, ok := players[id]; !ok {
-					players[id] = dl99.NewPlayer(id, name)
-					data, err := json.Marshal(players[id])
-					if err != nil {
-						w.WriteHeader(http.StatusInternalServerError)
-						log.Printf("marshal player failed: %v\n", err)
-						return
-					}
-					if _, err := w.Write(data); err != nil {
-						log.Printf("marshal player failed: %v\n", err)
-						return
-					}
-					break
-				}
-			}
-		case http.MethodGet:
-			id, err := uuid.Parse(req.URL.Query().Get("id"))
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				log.Printf("invalid player id: %s\n", req.URL.Query().Get("id"))
-				return
-			}
-			if player, ok := players[id]; ok {
-				data, err := json.Marshal(player)
-				if err != nil {
-					w.WriteHeader(http.StatusInternalServerError)
-					log.Printf("marshal player failed: %v\n", err)
-					return
-				}
-				if _, err := w.Write(data); err != nil {
-					log.Printf("send player failed: %v\n", err)
-					return
-				}
-			} else {
-				w.WriteHeader(http.StatusNotFound)
-				log.Printf("player %d not found\n", id)
-				return
-			}
-		default:
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			log.Println("player interface allow POST or GET")
+	r := gin.Default()
+
+	// new player
+	r.POST("/player", func(c *gin.Context) {
+		if playerId, err := srv.NewPlayer(c.PostForm("name")); err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		} else {
+			c.JSON(http.StatusOK, gin.H{
+				"player_id": playerId,
+			})
+		}
+	})
+
+	// new game
+	r.POST("/game", func(c *gin.Context) {
+		if gameId, err := srv.NewGame(c.PostForm("name")); err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		} else {
+			c.JSON(http.StatusOK, gin.H{
+				"game_id": gameId,
+			})
+		}
+	})
+
+	// list games
+	r.GET("/games", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"games": srv.GameBriefs(),
+		})
+	})
+
+	// join game
+	r.POST("/join_game", func(c *gin.Context) {
+		gameId, ok := c.GetPostForm("game_id")
+		if !ok {
+			_ = c.AbortWithError(http.StatusBadRequest, errors.New("missing game_id"))
+			return
+		}
+
+		playerId, ok := c.GetPostForm("player_id")
+		if !ok {
+			_ = c.AbortWithError(http.StatusBadRequest, errors.New("missing player_id"))
+			return
+		}
+
+		if err := srv.JoinGame(gameId, playerId); err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
 	})
 
-	//POST /game
-	//GET /game?id=0
-	http.HandleFunc("/game", func(w http.ResponseWriter, req *http.Request) {
-		switch req.Method {
-		case http.MethodPost:
-			name := req.PostFormValue("name")
-			if len(name) == 0 {
-				w.WriteHeader(http.StatusBadRequest)
-				log.Println("no name")
-				return
-			}
+	// start game
+	r.POST("/start_game", func(c *gin.Context) {
+		gameId, ok := c.GetPostForm("game_id")
+		if !ok {
+			_ = c.AbortWithError(http.StatusBadRequest, errors.New("missing game_id"))
+			return
+		}
 
-			var id uuid.UUID
-			for {
-				id = uuid.New()
-				if _, ok := games[id]; !ok {
-					games[id] = dl99.NewGame(id, name)
-					data, err := json.Marshal(games[id])
-					if err != nil {
-						w.WriteHeader(http.StatusInternalServerError)
-						log.Printf("marshal game failed: %v\n", err)
-						return
-					}
-					if _, err := w.Write(data); err != nil {
-						log.Printf("marshal game failed: %v\n", err)
-						return
-					}
-					break
-				}
-			}
-		case http.MethodGet:
-			id, err := uuid.Parse(req.URL.Query().Get("id"))
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				log.Printf("invalid game id: %s\n", req.URL.Query().Get("id"))
-				return
-			}
+		playerId, ok := c.GetPostForm("player_id")
+		if !ok {
+			_ = c.AbortWithError(http.StatusBadRequest, errors.New("missing player_id"))
+			return
+		}
 
-			if game, ok := games[id]; ok {
-				data, err := json.Marshal(game)
-				if err != nil {
-					w.WriteHeader(http.StatusInternalServerError)
-					log.Printf("marshal game failed: %v\n", err)
-					return
-				}
-				if _, err := w.Write(data); err != nil {
-					log.Printf("send game failed: %v\n", err)
-					return
-				}
-			} else {
-				w.WriteHeader(http.StatusNotFound)
-				log.Printf("game %d not found\n", id)
-				return
-			}
-		default:
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			log.Println("game interface allow POST or GET")
+		if err := srv.StartGame(gameId, playerId); err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
 	})
 
-	// GET /games
-	http.HandleFunc("/games", func(w http.ResponseWriter, req *http.Request) {
-		switch req.Method {
-		case http.MethodGet:
-			data, err := json.Marshal(games)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				log.Printf("marshal games faield: %v\n", err)
-				return
-			}
-			if _, err := w.Write(data); err != nil {
-				log.Printf("send games faile: %v\n", err)
-				return
-			}
-		default:
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			log.Println("games interface allow GET")
+	// list players by game
+	r.GET("/game/:game_id/players", func(c *gin.Context) {
+		playerBriefs, err := srv.ListPlayersByGame(c.Param("game_id"))
+		if err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"players": playerBriefs,
+		})
+	})
+
+	// game info
+	r.GET("/game/:game_id", func(c *gin.Context) {
+		gameDetail, err := srv.GameInfo(c.Param("game_id"))
+		if err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+		c.JSON(http.StatusOK, gameDetail)
+	})
+
+	// player info
+	r.GET("/player/:player_id", func(c *gin.Context) {
+		playerDetail, err := srv.PlayerInfo(c.Param("player_id"))
+		if err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+		c.JSON(http.StatusOK, playerDetail)
+	})
+
+	// play card
+	r.POST("/play/:game_id/:player_id/:card_index", func(c *gin.Context) {
+		cardIndex, err := strconv.ParseInt(c.Param("card_index"), 10, 32)
+		if err != nil {
+			_ = c.AbortWithError(http.StatusBadRequest, errors.New("invalid card_index"))
+			return
+		}
+		var cardOption dl99.CardOption
+		if err := c.ShouldBind(&cardOption); err != nil {
+			_ = c.AbortWithError(http.StatusBadRequest, err)
+			return
+		}
+		if err := srv.PlayCard(c.Param("game_id"), c.Param("player_id"), int(cardIndex), &cardOption); err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
 	})
 
-	// POST /join_game?game_id=0&player_id=0
-	http.HandleFunc("/join_game", func(w http.ResponseWriter, req *http.Request) {
-		switch req.Method {
-		case http.MethodPost:
-			gameId, err := uuid.Parse(req.PostFormValue("game_id"))
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				log.Printf("invalid game id: %s\n", req.PostFormValue("game_id"))
-				return
-			}
-			game, ok := games[gameId]
-			if !ok {
-				w.WriteHeader(http.StatusNotFound)
-				log.Printf("game %d not found", gameId)
-				return
-			}
-
-			playerId, err := uuid.Parse(req.PostFormValue("player_id"))
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				log.Printf("invalid player id: %s\n", req.PostFormValue("player_id"))
-				return
-			}
-			player, ok := players[playerId]
-			if !ok {
-				w.WriteHeader(http.StatusNotFound)
-				log.Printf("player %d not found", playerId)
-				return
-			}
-
-			if err := game.PlayerJoin(player); err != nil {
-				w.WriteHeader(http.StatusForbidden)
-				log.Printf("player join failed: %v\n", err)
-				return
-			}
-		default:
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			log.Println("join_game interface allow POST")
-			return
-		}
-	})
-
-	// POST /start_game?game_id=0
-	http.HandleFunc("/start_game", func(w http.ResponseWriter, req *http.Request) {
-		switch req.Method {
-		case http.MethodPost:
-			id, err := uuid.Parse(req.PostFormValue("game_id"))
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				log.Printf("invalid game id: %s\n", req.PostFormValue("game_id"))
-				return
-			}
-			if game, ok := games[id]; ok {
-				if err := game.StartGame(); err != nil {
-					w.WriteHeader(http.StatusForbidden)
-					log.Printf("start game failed: %v\n", err)
-					return
-				}
-			} else {
-				w.WriteHeader(http.StatusNotFound)
-				log.Printf("game %d not found\n", id)
-				return
-			}
-		default:
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			log.Println("start_game interface allow POST")
-			return
-		}
-	})
-
-	// POST /play?game_id=0&player_id=0&card_index=0&card_options={}
-	http.HandleFunc("/play", func(w http.ResponseWriter, req *http.Request) {
-		switch req.Method {
-		case http.MethodPost:
-			gameId, err := uuid.Parse(req.PostFormValue("game_id"))
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				log.Printf("invalid game id: %s\n", req.PostFormValue("game_id"))
-				return
-			}
-			game, ok := games[gameId]
-			if !ok {
-				w.WriteHeader(http.StatusNotFound)
-				log.Printf("game %d not found\n", gameId)
-				return
-			}
-
-			playerId, err := uuid.Parse(req.PostFormValue("player_id"))
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				log.Printf("invalid player id: %s\n", req.PostFormValue("player_id"))
-				return
-			}
-			player, ok := players[playerId]
-			if !ok {
-				w.WriteHeader(http.StatusNotFound)
-				log.Printf("player %d not found", playerId)
-				return
-			}
-
-			cardIndex, err := strconv.ParseInt(req.PostFormValue("card_index"), 10, 32)
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				log.Printf("invalid card_index %s\n", req.PostFormValue("card_index"))
-				return
-			}
-
-			var cardOption *dl99.CardOption
-			if len(req.PostFormValue("card_option")) > 0 {
-				if err := json.Unmarshal([]byte(req.PostFormValue("card_option")), cardOption); err != nil {
-					w.WriteHeader(http.StatusBadRequest)
-					log.Printf("invalid card_option: %s\n", req.PostFormValue("card_option"))
-					return
-				}
-			}
-
-			if err := player.Play(game, int(cardIndex), cardOption); err != nil {
-				w.WriteHeader(http.StatusNotAcceptable)
-				log.Printf("play failed: %v\n", err)
-			}
-		default:
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			log.Println("play interface allow POST")
-			return
-		}
-	})
-
-	if err := http.ListenAndServe(fmt.Sprintf("%s:%d", *serverHost, *serverPort), nil); err != nil {
-		log.Fatal(err)
+	if err := r.Run(fmt.Sprintf("%s:%d", *serverHost, *serverPort)); err != nil {
+		log.Println(err)
 	}
 }

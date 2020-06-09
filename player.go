@@ -1,29 +1,34 @@
 package dl99
 
-import (
-	"errors"
-	"github.com/google/uuid"
+const (
+	defaultPlayerName = "Bravo Player"
 )
 
-type Player struct {
-	Id   uuid.UUID `json:"id"`
-	Name string    `json:"name"`
-	Hand []Card    `json:"hand"`
+type player struct {
+	id       string
+	name     string
+	hand     []Card
+	gameId   string
+	position int
 }
 
-func NewPlayer(id uuid.UUID, name string) *Player {
-	return &Player{
-		Id:   id,
-		Name: name,
+func newPlayer(name string) *player {
+	if name == "" {
+		name = defaultPlayerName
+	}
+	return &player{
+		id:       randomId(),
+		name:     name,
+		position: -1,
 	}
 }
 
-func (player *Player) Play(game *Game, cardIndex int, cardOption *CardOption) error {
-	if cardIndex >= len(player.Hand) {
-		return errors.New("invalid card index")
-	}
+func (player player) inGame() bool {
+	return player.gameId != ""
+}
 
-	card := player.Hand[cardIndex]
-	player.Hand = append(player.Hand[:cardIndex], player.Hand[cardIndex+1:]...)
-	return game.PlayCard(player, card, cardOption)
+func (player *player) leaveGame() {
+	player.hand = nil
+	player.gameId = ""
+	player.position = -1
 }

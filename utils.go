@@ -1,47 +1,28 @@
 package dl99
 
 import (
+	"encoding/binary"
+	"encoding/hex"
 	"math/rand"
 	"time"
 )
 
-const (
-	StandardNumbersOfPoker = 13*4 + 2
-)
-
-func ADeckOfCards(ignoredCards ...Card) []Card {
-	ignoredCardsMap := make(map[Card]struct{})
-	for _, card := range ignoredCards {
-		ignoredCardsMap[card] = struct{}{}
-	}
-
-	cards := make([]Card, 0, StandardNumbersOfPoker)
-	for _, suit := range []Suit{Heart, Diamond, Club, Spade} {
-		for _, rank := range []Rank{
-			RankAce,
-			Rank2, Rank3, Rank4, Rank5, Rank6, Rank7, Rank8, Rank9, Rank10,
-			RankJack, RankQueen, RankKing,
-		} {
-			card := Card{
-				Suit: suit,
-				Rank: rank,
-			}
-			if _, ok := ignoredCardsMap[card]; ok {
-				continue
-			}
-			cards = append(cards, card)
-		}
-	}
-	cards = append(cards, Card{Suit: RedJoker}, Card{Suit: BlackJoker})
-	return cards
-}
-
 // Fisher-Yates
-func Shuffle(cards []Card) {
+func shuffle(cards []Card) {
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	var j int
-	for i := 0; i < len(cards); i++ {
+	var i, j int
+	for i = 0; i < len(cards); i++ {
 		j = rng.Intn(len(cards)-i) + i
 		cards[i], cards[j] = cards[j], cards[i]
 	}
+}
+
+// 8 bytes timestamp + 16 bytes random bytes
+func randomId() string {
+	now := time.Now().UnixNano()
+	rng := rand.New(rand.NewSource(now))
+	buf := make([]byte, 24)
+	binary.LittleEndian.PutUint64(buf, uint64(now))
+	rng.Read(buf[8:])
+	return hex.EncodeToString(buf)
 }

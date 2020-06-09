@@ -2,7 +2,7 @@ package dl99
 
 import (
 	"errors"
-	"github.com/google/uuid"
+	"log"
 	"math/rand"
 	"sync"
 	"time"
@@ -16,36 +16,35 @@ var (
 	ErrWin                    = errors.New("you win")
 	ErrInvalidRank            = errors.New("invalid rank")
 	ErrInvalidCardOption      = errors.New("invalid card option")
-	ErrYouAreNotCurrentPlayer = errors.New("you are not current Player")
+	ErrYouAreNotCurrentPlayer = errors.New("you are not current player")
+	ErrInvalidHandCard        = errors.New("invalid hand card")
 )
 
 const (
-	Deadline   = 99
-	MinPlayers = 3
-)
-
-var (
-	IgnoredCards = []Card{
-		{Heart, Rank2}, {Diamond, Rank2}, {Club, Rank2}, {Spade, Rank2},
-		{Suit: RedJoker}, {Suit: BlackJoker},
-	}
+	deadlineScore        = 99
+	minPlayers           = 3
+	initialHandCardCount = 5
 )
 
 const (
-	gameCreated = iota
-	gameStarted
-	gameFinished
+	GameCreated = iota
+	GameStarted
+	GameFinished
 )
 
-type Game struct {
-	Id                 uuid.UUID `json:"id"`
-	Name               string    `json:"name"`
-	Players            []*Player `json:"players"`
-	Score              int       `json:"score"`
-	CurrentPlayerIndex int       `json:"current_player_index"`
-	State              int       `json:"state"`
+const (
+	defaultGameName = "Wonderful Game"
+)
 
-	mu sync.Mutex
+type game struct {
+	mu              *sync.Mutex
+	id              string
+	name            string
+	players         []*player
+	score           int
+	currentPosition int
+	state           int
+	rng             *rand.Rand
 
 	deck     []Card
 	deadwood []Card
@@ -55,88 +54,127 @@ type Game struct {
 	clockwise bool
 }
 
-func NewGame(id uuid.UUID, name string) *Game {
-	return &Game{
-		Id:        id,
-		Name:      name,
-		State:     gameCreated,
-		clockwise: true,
+func newGame(name string) *game {
+	if name == "" {
+		name = defaultGameName
 	}
+	game := &game{
+		mu:              &sync.Mutex{},
+		id:              randomId(),
+		name:            name,
+		players:         make([]*player, 0, minPlayers),
+		score:           0,
+		currentPosition: 0,
+		state:           GameCreated,
+		rng:             rand.New(rand.NewSource(time.Now().UnixNano())),
+		clockwise:       true,
+	}
+	return game
 }
 
-func (game *Game) PlayerJoin(player *Player) error {
+func (game *game) playerJoin(player *player) error {
 	game.mu.Lock()
 	defer game.mu.Unlock()
 
-	if game.State != gameCreated {
+	if game.state != GameCreated {
 		return ErrInvalidGameState
 	}
 
-	for _, somePlayer := range game.Players {
-		if somePlayer.Id == player.Id {
-			return ErrPlayerAlreadyJoined
-		}
+	if player.inGame() {
+		return ErrPlayerAlreadyJoined
 	}
-	game.Players = append(game.Players, player)
+
+	player.gameId = game.id
+	player.position = len(game.players)
+	game.players = append(game.players, player)
+	log.Printf("player [%s] joined game [%s]\n", player.name, game.name)
 	return nil
 }
 
-func (game *Game) StartGame() error {
+func (game *game) startGame() error {
 	game.mu.Lock()
 	defer game.mu.Unlock()
 
-	if game.State != gameCreated {
+	if game.state != GameCreated {
 		return ErrInvalidGameState
 	}
 
-	if len(game.Players) < MinPlayers {
+	if len(game.players) < minPlayers {
 		return ErrInSufficientPlayers
 	}
 
-	setsOfCards := (len(game.Players) + 1) / 2
-	cards := make([]Card, 0, StandardNumbersOfPoker*setsOfCards)
-	for i := 0; i < setsOfCards; i++ {
-		cards = append(cards, ADeckOfCards(IgnoredCards...)...)
+	decks := (len(game.players) + 1) / 2
+	cards := make([]Card, 0, len(freeBattleDeadline99Deck)*decks)
+	for i := 0; i < decks; i++ {
+		cards = append(cards, freeBattleDeadline99Deck...)
 	}
-	Shuffle(cards)
+	shuffle(cards)
 
 	game.deck = cards
 	game.deadwood = make([]Card, 0, len(game.deck))
-
-	for _, player := range game.Players {
-		if player.Hand == nil {
-			player.Hand = make([]Card, 0, 5)
-		} else {
-			player.Hand = player.Hand[:0]
+	log.Printf("game [%s] got deck\n", game.name)
+	for i := 0; i < len(game.deck); i++ {
+		switch i % 10 {
+		case 1:
+			log.Printf("[")
+		case 0:
+			log.Println("]")
 		}
-		for i := 0; i < 5; i++ {
-			player.Hand = append(player.Hand, game.drawCard())
+		log.Printf("%s,", game.deck[i].Name())
+	}
+	log.Println("\n=====================================")
+
+	for _, player := range game.players {
+		if player.hand == nil {
+			player.hand = make([]Card, 0, initialHandCardCount)
+		} else {
+			player.hand = player.hand[:0]
+		}
+		for i := 0; i < initialHandCardCount; i++ {
+			player.hand = append(player.hand, game.drawCard())
 		}
 	}
 
-	game.State = gameStarted
+	game.state = GameStarted
+	log.Printf("game [%s] started\n", game.name)
 
 	return nil
 }
 
-func (game *Game) PlayCard(player *Player, card Card, cardOption *CardOption) error {
+func (game *game) playCard(currentPlayer *player, handCardIndex int, cardOption *CardOption) error {
 	game.mu.Lock()
 	defer game.mu.Unlock()
 
-	if game.State != gameStarted {
+	if game.state != GameStarted {
 		return ErrInvalidGameState
 	}
 
-	if !game.checkCurrentPlayer(player) {
+	currentPlayerChecked := false
+	for _, p := range game.players {
+		if p.id == currentPlayer.id && game.currentPosition == currentPlayer.position {
+			currentPlayerChecked = true
+			break
+		}
+	}
+	if !currentPlayerChecked {
 		return ErrYouAreNotCurrentPlayer
 	}
 
-	game.deadwood = append(game.deadwood, card)
+	var card Card
+	if 0 <= handCardIndex && handCardIndex < len(currentPlayer.hand) {
+		card = currentPlayer.hand[handCardIndex]
+		currentPlayer.hand = append(currentPlayer.hand[:handCardIndex], currentPlayer.hand[handCardIndex+1:]...)
+		game.deadwood = append(game.deadwood, card)
+		log.Printf("player [%s] play card [%s] in game [%s]\n", currentPlayer.name, card.Name(), game.name)
+	} else {
+		return ErrInvalidHandCard
+	}
 
 	// Game logic
-	tempScore := game.Score
+	tempScore := game.score
 	skipDraw := false
-	switch card.Rank {
+	skipNextPosition := false
+	switch card.Rank() {
 	case Rank10:
 		if cardOption == nil {
 			return ErrInvalidCardOption
@@ -156,14 +194,15 @@ func (game *Game) PlayCard(player *Player, card Card, cardOption *CardOption) er
 			tempScore -= 20
 		}
 	case RankKing:
-		tempScore = Deadline
+		tempScore = deadlineScore
 	case RankAce:
 		if cardOption == nil {
 			return ErrInvalidCardOption
 		}
-		for i, somePlayer := range game.Players {
-			if somePlayer.Id == cardOption.RankAceChangeNextPlayer {
-				game.CurrentPlayerIndex = i
+		for i, p := range game.players {
+			if p.id == cardOption.RankAceChangeNextPlayer {
+				game.currentPosition = i
+				skipNextPosition = true
 				break
 			}
 		}
@@ -173,12 +212,12 @@ func (game *Game) PlayCard(player *Player, card Card, cardOption *CardOption) er
 		if cardOption == nil {
 			return ErrInvalidCardOption
 		}
-		for _, somePlayer := range game.Players {
-			if somePlayer.Id == cardOption.RankJackDrawOneCardFromPlayer {
-				cardIndex := rand.New(rand.NewSource(time.Now().UnixNano())).Intn(len(somePlayer.Hand))
-				drewCard := somePlayer.Hand[cardIndex]
-				somePlayer.Hand = append(somePlayer.Hand[:cardIndex], somePlayer.Hand[cardIndex+1:]...)
-				player.Hand = append(player.Hand, drewCard)
+		for _, p := range game.players {
+			if p.id == cardOption.RankJackDrawOneCardFromPlayer {
+				cardIndex := game.rng.Intn(len(p.hand))
+				drewCard := p.hand[cardIndex]
+				p.hand = append(p.hand[:cardIndex], p.hand[cardIndex+1:]...)
+				currentPlayer.hand = append(currentPlayer.hand, drewCard)
 				break
 			}
 		}
@@ -187,79 +226,83 @@ func (game *Game) PlayCard(player *Player, card Card, cardOption *CardOption) er
 		if cardOption == nil {
 			return ErrInvalidCardOption
 		}
-		for _, somePlayer := range game.Players {
-			if somePlayer.Id == cardOption.Rank7ChangeAllHandToPlayer {
-				player.Hand, somePlayer.Hand = somePlayer.Hand, player.Hand
+		for _, p := range game.players {
+			if p.id == cardOption.Rank7ChangeAllHandToPlayer {
+				currentPlayer.hand, p.hand = p.hand, currentPlayer.hand
 				break
 			}
 		}
 		skipDraw = true
-	case Rank3:
-		tempScore += 3
-	case Rank4:
-		tempScore += 4
-	case Rank5:
-		tempScore += 5
-	case Rank6:
-		tempScore += 6
-	case Rank9:
-		tempScore += 9
+	case Rank3, Rank4, Rank5, Rank6, Rank9:
+		tempScore += card.Score()
 	default:
 		return ErrInvalidRank
 	}
 
-	if tempScore > Deadline {
-		for i, p := range game.Players {
-			if p.Id == player.Id {
-				game.Players = append(game.Players[:i], game.Players[i+1:]...)
+	if tempScore < 0 {
+		tempScore = 0
+	}
+
+	if tempScore > deadlineScore {
+		for i, p := range game.players {
+			if p.id == currentPlayer.id {
+				currentPlayer.leaveGame()
+				game.players = append(game.players[:i], game.players[i+1:]...)
+				log.Printf("player [%s] left game [%s]\n", currentPlayer.name, game.name)
+				log.Printf("now we have %d players remained in game [%s]\n", len(game.players), game.name)
 				break
 			}
 		}
 		return ErrLose
 	} else {
-		game.Score = tempScore
+		game.score = tempScore
+		log.Printf("game [%s] score = %d\n", game.name, game.score)
 	}
 
-	if len(game.Players) == 1 {
-		game.State = gameFinished
+	if len(game.players) == 1 {
+		game.state = GameFinished
+		currentPlayer.leaveGame()
+		game.players = game.players[:0]
+		log.Printf("player [%s] won in game [%s]\n", currentPlayer.name, game.name)
 		return ErrWin
 	}
 
 	if !skipDraw {
-		player.Hand = append(player.Hand, game.drawCard())
+		card := game.drawCard()
+		currentPlayer.hand = append(currentPlayer.hand, card)
+		log.Printf("player [%s] draw card [%s] in game [%s]\n", currentPlayer.name, card.Name(), game.name)
+	} else {
+		log.Printf("player [%s] skipped draw\n", currentPlayer.name)
 	}
 
-	if game.clockwise {
-		game.CurrentPlayerIndex = (game.CurrentPlayerIndex + 1) % len(game.Players)
+	if !skipNextPosition {
+		if game.clockwise {
+			game.currentPosition = (game.currentPosition + 1) % len(game.players)
+		} else {
+			game.currentPosition = (game.currentPosition - 1) % len(game.players)
+		}
+		log.Printf("game [%s] next player will be [%s]\n", game.name, game.players[game.currentPosition].name)
 	} else {
-		game.CurrentPlayerIndex = (game.CurrentPlayerIndex - 1) % len(game.Players)
+		log.Printf("game [%s] will not change next position for now\n", game.name)
 	}
 
 	return nil
 }
 
-func (game *Game) checkCurrentPlayer(player *Player) bool {
-	for i, p := range game.Players {
-		if p.Id == player.Id {
-			return game.CurrentPlayerIndex == i
-		}
+func (game *game) shuffle() {
+	if len(game.deck) > 0 {
+		game.deadwood = append(game.deadwood, game.deck...)
 	}
-	return false
-}
-
-func (game *Game) shuffle() {
-	game.deadwood = append(game.deadwood, game.deck...)
-	Shuffle(game.deadwood)
+	shuffle(game.deadwood)
 	game.deck = game.deck[:0]
 	game.deck = append(game.deck, game.deadwood...)
 	game.deadwood = game.deadwood[:0]
 }
 
-func (game *Game) drawCard() Card {
+func (game *game) drawCard() Card {
 	if len(game.deck) == 0 {
 		game.shuffle()
 	}
-
 	card := game.deck[0]
 	game.deck = game.deck[1:]
 	return card
