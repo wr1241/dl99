@@ -245,3 +245,21 @@ func (srv *server) PlayCard(gameId string, playerId string, cardIndex int, cardO
 
 	return game.playCard(player, cardIndex, cardOption)
 }
+
+func (srv *server) CleanUpFinishedGame() int {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	toBeDeleteGameIndex := make([]int, 0, len(srv.games))
+	for i := len(srv.games) - 1; i >= 0; i-- {
+		if srv.games[i].state == GameFinished {
+			toBeDeleteGameIndex = append(toBeDeleteGameIndex, i)
+		}
+	}
+	count := 0
+	for _, index := range toBeDeleteGameIndex {
+		srv.games = append(srv.games[:index], srv.games[index+1:]...)
+		count++
+	}
+	return count
+}

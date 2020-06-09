@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"dl99"
 	"errors"
 	"flag"
@@ -9,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 var (
@@ -21,7 +23,24 @@ var (
 func main() {
 	flag.Parse()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	srv := dl99.NewServer(*maxPlayers, *maxGames)
+	go func() {
+		t := time.NewTicker(time.Minute)
+		defer t.Stop()
+
+		for {
+			select {
+			case <-t.C:
+				log.Printf("cleaned %d finished games\n", srv.CleanUpFinishedGame())
+			case <-ctx.Done():
+				log.Println("exit")
+				return
+			}
+		}
+	}()
 
 	r := gin.Default()
 
