@@ -76,20 +76,16 @@ func main() {
 	})
 
 	// join game
-	r.POST("/join_game", func(c *gin.Context) {
-		gameId, ok := c.GetPostForm("game_id")
-		if !ok {
-			_ = c.AbortWithError(http.StatusBadRequest, errors.New("missing game_id"))
+	r.POST("/join/:game_id/:player_id", func(c *gin.Context) {
+		if err := srv.JoinGame(c.Param("game_id"), c.Param("player_id")); err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
+	})
 
-		playerId, ok := c.GetPostForm("player_id")
-		if !ok {
-			_ = c.AbortWithError(http.StatusBadRequest, errors.New("missing player_id"))
-			return
-		}
-
-		if err := srv.JoinGame(gameId, playerId); err != nil {
+	// leave game
+	r.POST("/leave/:game_id/:player_id", func(c *gin.Context) {
+		if err := srv.LeaveGame(c.Param("game_id"), c.Param("player_id")); err != nil {
 			_ = c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}

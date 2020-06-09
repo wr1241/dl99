@@ -2,14 +2,14 @@ package dl99
 
 const (
 	defaultPlayerName = "Bravo Player"
+	playerIdPrefix    = "p-"
 )
 
 type player struct {
-	id       string
-	name     string
-	hand     []Card
-	gameId   string
-	position int
+	id     string
+	name   string
+	gameId string
+	hand   []Card
 }
 
 func newPlayer(name string) *player {
@@ -17,18 +17,13 @@ func newPlayer(name string) *player {
 		name = defaultPlayerName
 	}
 	return &player{
-		id:       randomId(),
-		name:     name,
-		position: -1,
+		id:         randomId(playerIdPrefix),
+		name:       name,
+		gameId:     "",
+		hand:       nil,
 	}
 }
 
 func (player player) inGame() bool {
 	return player.gameId != ""
-}
-
-func (player *player) leaveGame() {
-	player.hand = nil
-	player.gameId = ""
-	player.position = -1
 }

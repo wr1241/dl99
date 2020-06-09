@@ -18,11 +18,11 @@ func shuffle(cards []Card) {
 }
 
 // 8 bytes timestamp + 16 bytes random bytes
-func randomId() string {
+func randomId(prefix string) string {
 	now := time.Now().UnixNano()
 	rng := rand.New(rand.NewSource(now))
-	buf := make([]byte, 24)
+	buf := make([]byte, 16)
 	binary.LittleEndian.PutUint64(buf, uint64(now))
 	rng.Read(buf[8:])
-	return hex.EncodeToString(buf)
+	return prefix + hex.EncodeToString(buf)
 }

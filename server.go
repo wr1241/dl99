@@ -27,16 +27,15 @@ type GameBrief struct {
 
 type GameDetail struct {
 	GameBrief
-	Score           int  `json:"score"`
-	CurrentPosition int  `json:"current_position"`
-	Clockwise       bool `json:"clock_wise"`
+	Score        int    `json:"score"`
+	NextPlayerId string `json:"next_player_id"`
+	Clockwise    bool   `json:"clock_wise"`
 }
 
 type PlayerBrief struct {
 	Id            string `json:"id"`
 	Name          string `json:"name"`
 	HandCardCount int    `json:"hand_card_count"`
-	Position      int    `json:"position"`
 }
 
 type PlayerDetail struct {
@@ -48,7 +47,7 @@ type server struct {
 	mu         *sync.RWMutex
 	players    []*player
 	maxPlayers int
-	games      []*game
+	games      []*freeBattleGame
 	maxGames   int
 }
 
@@ -63,7 +62,7 @@ func NewServer(maxPlayers, maxGames int) *server {
 		mu:         &sync.RWMutex{},
 		players:    make([]*player, 0, maxPlayers),
 		maxPlayers: maxPlayers,
-		games:      make([]*game, 0, maxGames),
+		games:      make([]*freeBattleGame, 0, maxGames),
 		maxGames:   maxGames,
 	}
 }
@@ -77,7 +76,7 @@ func (srv *server) findPlayerById(id string) (*player, error) {
 	return nil, ErrPlayerNotFound
 }
 
-func (srv *server) findGameById(id string) (*game, error) {
+func (srv *server) findGameById(id string) (*freeBattleGame, error) {
 	for _, game := range srv.games {
 		if game.id == id {
 			return game, nil
@@ -143,7 +142,24 @@ func (srv *server) JoinGame(gameId string, playerId string) error {
 		return err
 	}
 
-	return game.playerJoin(player)
+	return game.join(player)
+}
+
+func (srv *server) LeaveGame(gameId string, playerId string) error {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	game, err := srv.findGameById(gameId)
+	if err != nil {
+		return err
+	}
+
+	player, err := srv.findPlayerById(playerId)
+	if err != nil {
+		return err
+	}
+
+	return game.leave(player, false)
 }
 
 func (srv *server) StartGame(gameId string, playerId string) error {
@@ -182,7 +198,6 @@ func (srv *server) ListPlayersByGame(gameId string) ([]PlayerBrief, error) {
 			Id:            player.id,
 			Name:          player.name,
 			HandCardCount: len(player.hand),
-			Position:      player.position,
 		})
 	}
 
@@ -204,9 +219,9 @@ func (srv *server) GameInfo(gameId string) (GameDetail, error) {
 			State:       game.state,
 			PlayerCount: len(game.players),
 		},
-		Score:           game.score,
-		CurrentPosition: game.currentPosition,
-		Clockwise:       game.clockwise,
+		Score:        game.score,
+		NextPlayerId: game.nextPlayerId,
+		Clockwise:    game.clockwise,
 	}, nil
 }
 
@@ -223,7 +238,6 @@ func (srv *server) PlayerInfo(playerId string) (PlayerDetail, error) {
 			Id:            player.id,
 			Name:          player.name,
 			HandCardCount: len(player.hand),
-			Position:      player.position,
 		},
 		HandCards: player.hand,
 	}, nil
@@ -243,7 +257,7 @@ func (srv *server) PlayCard(gameId string, playerId string, cardIndex int, cardO
 		return err
 	}
 
-	return game.playCard(player, cardIndex, cardOption)
+	return game.play(player, cardIndex, cardOption)
 }
 
 func (srv *server) CleanUpFinishedGame() int {

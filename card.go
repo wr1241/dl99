@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-type Suit uint8
+type Suit int
 
 const (
 	_ Suit = iota
@@ -35,7 +35,7 @@ func (suit Suit) Name() string {
 	}
 }
 
-type Rank uint8
+type Rank int
 
 const (
 	NoRank Rank = iota
@@ -57,7 +57,7 @@ const (
 func (rank Rank) Name() string {
 	switch rank {
 	case NoRank:
-		return "No Rank"
+		return ""
 	case RankAce:
 		return "Ace"
 	case Rank2:
@@ -95,7 +95,7 @@ func (rank Rank) Name() string {
 // 40 -> 52 Spade
 // 53 -> BlackJoker
 // 54 -> RedJoker
-type Card uint8
+type Card int
 
 func (card Card) Suit() Suit {
 	if 1 <= card && card <= 13 {
@@ -160,19 +160,13 @@ func (card Card) Name() string {
 }
 
 func (card Card) Score() int {
-	switch card.Rank() {
-	case Rank3:
-		return 3
-	case Rank4:
-		return 4
-	case Rank5:
-		return 5
-	case Rank6:
-		return 6
-	case Rank9:
-		return 9
+	rank := card.Rank()
+	switch rank {
+	case Rank3, Rank4, Rank5, Rank6, Rank9:
+		return int(rank)
+	default:
+		return 0
 	}
-	return 0
 }
 
 type CardOption struct {
@@ -197,14 +191,7 @@ type CardOption struct {
 }
 
 var (
-	deck = []Card{
-		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
-		14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
-		27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-		40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52,
-		53, 54,
-	}
-
+	// 剔除所有的2和鬼牌
 	freeBattleDeadline99Deck = []Card{
 		1,  /*2,*/ 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
 		14, /*15,*/ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
