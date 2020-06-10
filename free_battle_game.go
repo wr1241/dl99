@@ -84,6 +84,7 @@ func (game *freeBattleGame) join(player *player) error {
 
 	player.gameId = game.id
 	player.hand = nil
+	game.players = append(game.players, player)
 	log.Printf("game [%s] player [%s] joined", game.name, player.name)
 
 	return nil
@@ -183,7 +184,7 @@ func (game *freeBattleGame) play(currentPlayer *player, handCardIndex int, cardO
 		return ErrInvalidGameState
 	}
 
-	if game.nextPlayerId != currentPlayer.gameId {
+	if game.nextPlayerId != currentPlayer.id {
 		return ErrYouAreNotCurrentPlayer
 	}
 

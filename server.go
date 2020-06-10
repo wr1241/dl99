@@ -40,7 +40,7 @@ type PlayerBrief struct {
 
 type PlayerDetail struct {
 	PlayerBrief
-	HandCards []Card `json:"hand_cards"`
+	HandCards []string `json:"hand_cards"`
 }
 
 type server struct {
@@ -233,14 +233,18 @@ func (srv *server) PlayerInfo(playerId string) (PlayerDetail, error) {
 	if err != nil {
 		return PlayerDetail{}, err
 	}
-	return PlayerDetail{
+	pd := PlayerDetail{
 		PlayerBrief: PlayerBrief{
 			Id:            player.id,
 			Name:          player.name,
 			HandCardCount: len(player.hand),
 		},
-		HandCards: player.hand,
-	}, nil
+		HandCards: make([]string, 0, len(player.hand)),
+	}
+	for _, card := range player.hand {
+		pd.HandCards = append(pd.HandCards, card.Name())
+	}
+	return pd, nil
 }
 
 func (srv *server) PlayCard(gameId string, playerId string, cardIndex int, cardOption *CardOption) error {

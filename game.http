@@ -9,18 +9,23 @@ name=nice game
 
 ###
 #{
-#  "game_id": "60874b3ea7c41616323f3f99ac9b83f262a087cc99cd3896"
+#  "game_id": "g-dc0f974eff1517161d333f285de953eb"
 #}
 
 ### Get Game Detail
-GET http://{{host}}:{{port}}/game/60874b3ea7c41616323f3f99ac9b83f262a087cc99cd3896
+GET http://{{host}}:{{port}}/game/g-dc0f974eff1517161d333f285de953eb
 
 ### Start Game
 POST http://{{host}}:{{port}}/start_game
 Content-Type: application/x-www-form-urlencoded
 
-game_id=60874b3ea7c41616323f3f99ac9b83f262a087cc99cd3896&player_id=48bc0015a4c41616d1aaf9ed40487aa45b75d93ff701f9b4
+game_id=g-dc0f974eff1517161d333f285de953eb&player_id=p-6c792b64151617165d070c5b247506f7
 
 
-###
-POST http://{{host}}:{{port}}/play/60874b3ea7c41616323f3f99ac9b83f262a087cc99cd3896/48bc0015a4c41616d1aaf9ed40487aa45b75d93ff701f9b4/4
+### play card
+POST http://{{host}}:{{port}}/play/g-dc0f974eff1517161d333f285de953eb/p-ccbe2294fd15171623b1ea8f1a95d3d7/2
+Content-Type: application/json
+
+{
+  "rank_ace_change_next_player": "p-6c792b64151617165d070c5b247506f7"
+}
