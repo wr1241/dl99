@@ -19,13 +19,13 @@ const (
 func (suit Suit) Name() string {
 	switch suit {
 	case Heart:
-		return "Heart"
+		return "♡"
 	case Diamond:
-		return "Diamond"
+		return "♢"
 	case Club:
-		return "Club"
+		return "♣"
 	case Spade:
-		return "Spade"
+		return "♠"
 	case RedJoker:
 		return "Red Joker"
 	case BlackJoker:
@@ -59,31 +59,31 @@ func (rank Rank) Name() string {
 	case NoRank:
 		return ""
 	case RankAce:
-		return "Ace"
+		return "A"
 	case Rank2:
-		return "Two"
+		return "2"
 	case Rank3:
-		return "Three"
+		return "3"
 	case Rank4:
-		return "Four"
+		return "4"
 	case Rank5:
-		return "Five"
+		return "5"
 	case Rank6:
-		return "Six"
+		return "6"
 	case Rank7:
-		return "Seven"
+		return "7"
 	case Rank8:
-		return "Eight"
+		return "8"
 	case Rank9:
-		return "Nine"
+		return "9"
 	case Rank10:
-		return "Ten"
+		return "10"
 	case RankJack:
-		return "Jack"
+		return "J"
 	case RankQueen:
-		return "Queen"
+		return "Q"
 	case RankKing:
-		return "King"
+		return "K"
 	default:
 		panic("invalid Rank Name")
 	}
@@ -155,7 +155,7 @@ func (card Card) Name() string {
 	case RedJoker, BlackJoker:
 		return suit.Name()
 	default:
-		return fmt.Sprintf("%s of %s", card.Rank().Name(), suit.Name())
+		return fmt.Sprintf("%s%s", card.Rank().Name(), suit.Name())
 	}
 }
 
