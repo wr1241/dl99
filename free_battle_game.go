@@ -107,34 +107,39 @@ func (game *freeBattleGame) leave(player *player, inGame bool) error {
 	playerCount := len(game.players)
 	for i := 0; i < playerCount; i++ {
 		if game.players[i].id == player.id {
-			// 离开的玩家的手牌，都要丢进弃牌堆
-			game.deadwood = append(game.deadwood, player.hand...)
-			player.hand = nil
+			if game.state == GameStarted {
+				// 如果当前离开的玩家就是下一位该出牌的玩家
+				// 就要再计算一次下一位出牌玩家
+				// 但是有一个特例，如果只剩最后一位玩家了，就不计算了
+				if game.nextPlayerId == player.id && playerCount > 1 {
+					if game.clockwise {
+						game.nextPlayerId = game.players[(i+1)%playerCount].id
+					} else {
+						game.nextPlayerId = game.players[(i+playerCount-1)%playerCount].id
+					}
+				}
 
-			// 如果当前离开的玩家就是下一位该出牌的玩家
-			// 就要再计算一次下一位出牌玩家
-			// 但是有一个特例，如果只剩最后一位玩家了，就不计算了
-			if game.nextPlayerId == player.id && playerCount > 1 {
-				if game.clockwise {
-					game.nextPlayerId = game.players[(i+1)%playerCount].id
-				} else {
-					game.nextPlayerId = game.players[(i+playerCount-1)%playerCount].id
+				// 离开的玩家的手牌，都要丢进弃牌堆
+				game.deadwood = append(game.deadwood, player.hand...)
+				player.hand = nil
+
+				// 最后离开的玩家获胜了
+				if len(game.players) < 1 {
+					game.state = GameFinished
+					return ErrWin
 				}
 			}
 
 			game.players = append(game.players[:i], game.players[i+1:]...)
 			player.gameId = ""
-
 			log.Printf("game [%s] player [%s] left, now we have %d players remained",
 				game.name, player.name, len(game.players))
 
-			// 最后离开的玩家获胜了
-			if len(game.players) < 1 {
-				game.state = GameFinished
-				return ErrWin
+			if game.state == GameStarted {
+				return ErrLose
 			}
 
-			return ErrLose
+			return nil
 		}
 	}
 
