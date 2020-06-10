@@ -27,9 +27,10 @@ type GameBrief struct {
 
 type GameDetail struct {
 	GameBrief
-	Score        int    `json:"score"`
-	NextPlayerId string `json:"next_player_id"`
-	Clockwise    bool   `json:"clock_wise"`
+	Score        int           `json:"score"`
+	NextPlayerId string        `json:"next_player_id"`
+	Clockwise    bool          `json:"clock_wise"`
+	Players      []PlayerBrief `json:"players"`
 }
 
 type PlayerBrief struct {
@@ -183,13 +184,13 @@ func (srv *server) StartGame(gameId string, playerId string) error {
 	return game.startGame()
 }
 
-func (srv *server) ListPlayersByGame(gameId string) ([]PlayerBrief, error) {
+func (srv *server) GameInfo(gameId string) (GameDetail, error) {
 	srv.mu.RLock()
 	defer srv.mu.RUnlock()
 
 	game, err := srv.findGameById(gameId)
 	if err != nil {
-		return nil, err
+		return GameDetail{}, err
 	}
 
 	players := make([]PlayerBrief, 0, len(game.players))
@@ -201,17 +202,6 @@ func (srv *server) ListPlayersByGame(gameId string) ([]PlayerBrief, error) {
 		})
 	}
 
-	return players, nil
-}
-
-func (srv *server) GameInfo(gameId string) (GameDetail, error) {
-	srv.mu.RLock()
-	defer srv.mu.RUnlock()
-
-	game, err := srv.findGameById(gameId)
-	if err != nil {
-		return GameDetail{}, err
-	}
 	return GameDetail{
 		GameBrief: GameBrief{
 			Id:          game.id,
@@ -222,6 +212,7 @@ func (srv *server) GameInfo(gameId string) (GameDetail, error) {
 		Score:        game.score,
 		NextPlayerId: game.nextPlayerId,
 		Clockwise:    game.clockwise,
+		Players:      players,
 	}, nil
 }
 

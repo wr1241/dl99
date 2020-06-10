@@ -111,18 +111,6 @@ func main() {
 		}
 	})
 
-	// list players by game
-	r.GET("/game/:game_id/players", func(c *gin.Context) {
-		playerBriefs, err := srv.ListPlayersByGame(c.Param("game_id"))
-		if err != nil {
-			_ = c.AbortWithError(http.StatusInternalServerError, err)
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{
-			"players": playerBriefs,
-		})
-	})
-
 	// game info
 	r.GET("/game/:game_id", func(c *gin.Context) {
 		gameDetail, err := srv.GameInfo(c.Param("game_id"))

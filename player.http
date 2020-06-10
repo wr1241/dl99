@@ -34,8 +34,5 @@ name=player3
 ### Get player info
 GET http://{{host}}:{{port}}/player/p-ccbe2294fd15171623b1ea8f1a95d3d7
 
-### Get players in game
-GET http://{{host}}:{{port}}/game/g-dc0f974eff1517161d333f285de953eb/players
-
 ### Join Game
 POST http://{{host}}:{{port}}/join/g-dc0f974eff1517161d333f285de953eb/p-6c792b64151617165d070c5b247506f7
